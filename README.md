@@ -75,6 +75,62 @@ Kernel speedups and serving improvements are reported separately.
 
 The TVM experiment initially runs independently of vLLM. Benchmarking SGLang does not imply custom-kernel integration into SGLang.
 
+## System Architecture
+
+```mermaid
+flowchart TD
+    A["LLMForge: Planned Architecture"] --> B["Shared Inputs and Configuration"]
+
+    B --> C["Kernel Experiments"]
+    B --> D["Model Inference"]
+    B --> E["Serving Experiments"]
+
+    subgraph Kernels["GPU Kernels and Compiler"]
+        C --> F["PyTorch Reference Operations"]
+        C --> G["CUDA C++: Fused Add + RMSNorm"]
+        C --> H["Triton: Causal Attention"]
+        C --> I["Apache TVM: Fusion Pass and GPU Schedule"]
+        G --> J["PyTorch C++ Bindings"]
+    end
+
+    subgraph Models["Model Validation"]
+        D --> K["Small PyTorch Transformer"]
+        J --> K
+        H --> K
+        K --> L["Compare Outputs and Logits"]
+    end
+
+    subgraph Serving["Runtime Integration and Comparison"]
+        E --> M["Baseline vLLM"]
+        E --> N["vLLM with Custom RMSNorm"]
+        E --> O["Baseline SGLang"]
+        J --> N
+    end
+
+    subgraph Evaluation["Correctness and Performance"]
+        F --> P["Operator Correctness Tests"]
+        J --> P
+        H --> P
+        I --> P
+
+        P --> Q["Kernel Benchmarks"]
+        R["FlashAttention and FlashInfer Baselines"] --> Q
+
+        M --> S["Serving Benchmarks"]
+        N --> S
+        O --> S
+
+        Q --> T["Results and Profiling Analysis"]
+        S --> T
+        L --> T
+        U["NVIDIA Nsight Profiling"] --> T
+    end
+
+    T --> V["Reproducible Reports"]
+```
+
+All components are planned. TVM runs as a separate compiler experiment. SGLang is a serving baseline; custom-kernel integration initially targets vLLM.
+
 ## Core Components
 
 ### 1. PyTorch Reference Implementations
