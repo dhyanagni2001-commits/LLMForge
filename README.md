@@ -4,7 +4,7 @@ GPU kernels, compiler optimizations, and reproducible benchmarks for LLM inferen
 
 LLMForge investigates how low-level GPU optimizations affect language-model inference and serving. The project connects PyTorch references, CUDA C++ and Triton kernels, vLLM integration, Apache TVM compiler experiments, and comparisons with SGLang, FlashAttention, and FlashInfer.
 
-**Project status:** Planning and initial scaffold. Features below are planned until marked complete. No performance improvements have been measured yet.
+**Project status:** All core components are implemented. CPU-side correctness (PyTorch references, model, TVM fusion pass and schedule) is tested. CUDA/Triton kernel tests, vLLM integration and all benchmarks are implemented but have not yet been run on an NVIDIA GPU. No performance results have been measured yet.
 
 ## Project Goals
 
@@ -264,6 +264,7 @@ The compiler milestone requires a rewrite and schedule implemented in this repos
 | `benchmarks/bench_rmsnorm.py` | Normalization benchmark |
 | `benchmarks/bench_attention.py` | Attention benchmark |
 | `benchmarks/bench_serving.py` | Serving benchmark |
+| `benchmarks/common.py` | CUDA-event timing and environment capture |
 | `tests/test_rmsnorm.py` | Normalization correctness tests |
 | `tests/test_attention.py` | Attention correctness tests |
 | `tests/test_compiler_fusion.py` | Compiler equivalence tests |
@@ -328,32 +329,29 @@ Check installation:
 python -c 'import torch; print("PyTorch:", torch.__version__); print("CUDA build:", torch.version.cuda); print("CUDA available:", torch.cuda.is_available())'
 ```
 
-### Configure Project Packaging
+### Install the Project
 
-Before editable installation is supported:
-
-- Implement the build configuration in `pyproject.toml`.
-- Configure package discovery.
-- Define test dependencies.
-- Choose a CUDA extension build mechanism.
-- Record tested package versions.
-
-The intended installation interface is:
+Python 3.10+ is required (TVM wheels need it).
 
 ```bash
-# Available after packaging is implemented.
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev]'          # core + pytest
+python -m pip install -e '.[dev,triton]'   # + Triton (Linux/CUDA)
+python -m pip install -e '.[tvm]'          # TVM 0.27 (tested), compiler experiments
+python -m pip install -e '.[serving]'      # aiohttp + transformers for runners/benchmarks
 ```
+
+The CUDA extension is JIT-compiled on first use by `kernels.load_cuda_extension()`
+(requires `nvcc` matching the PyTorch CUDA build). `CMakeLists.txt` is an optional alternative.
+
+Tested on macOS (CPU): Python 3.11, PyTorch 2.14.1, apache-tvm 0.27.0.post1.
 
 Use separate pinned environments for runtimes or compiler tools when dependencies conflict.
 
 Do not assume that arbitrary latest versions of every framework are mutually compatible.
 
-## Planned Usage
+## Usage
 
-The commands below describe the intended CLI.
-
-**They will work only after the corresponding scripts and packaging are implemented.**
+GPU-only tests skip automatically when CUDA or Triton is unavailable.
 
 ### Correctness Tests
 
@@ -389,7 +387,13 @@ python -m benchmarks.bench_attention \
 
 ### Reference Model Inference
 
-Replace the example identifiers with a supported model and pinned revision:
+Built-in tiny transformer, comparing custom kernels against the reference path (GPU):
+
+```bash
+python -m runtimes.pytorch_runner --custom --dtype float16
+```
+
+Hugging Face model — replace the example identifiers with a supported model and pinned revision:
 
 ```bash
 python -m runtimes.pytorch_runner \
@@ -414,7 +418,16 @@ python -m benchmarks.bench_serving \
   --output results/serving.json
 ```
 
-Document runtime launch commands and custom-operation loading instructions for the pinned versions.
+Servers to compare:
+
+```bash
+vllm serve MODEL --revision REV --dtype float16                              # baseline vLLM
+python -m runtimes.vllm_custom_op serve MODEL --revision REV --dtype float16 # vLLM + custom norm
+python -m runtimes.sglang_runner --model MODEL --revision REV               # SGLang (prints matching vLLM cmd)
+```
+
+`runtimes/vllm_custom_op.py` documents the targeted vLLM versions, the fallback rules,
+and how to verify the kernel actually executes (`stats()` counters, Nsight Systems).
 
 ## Correctness Testing
 
@@ -523,7 +536,7 @@ Specify the metric, workload, and baseline for every improvement claim.
 
 ## Results
 
-No measurements are available yet.
+No measurements are available yet. Benchmarks write raw JSON (with environment metadata) to `results/`.
 
 | Experiment | Baseline | Candidate | Result |
 |---|---|---|---|
@@ -584,17 +597,17 @@ Collect primary timing results separately from profiling runs.
 
 ## Implementation Roadmap
 
-- [ ] Implement PyTorch reference operations.
-- [ ] Add normalization correctness tests.
-- [ ] Implement CUDA fused residual-add + RMSNorm.
-- [ ] Expose the kernel through C++ bindings.
-- [ ] Publish a reproducible normalization benchmark.
-- [ ] Integrate the operation into a pinned vLLM version.
+- [x] Implement PyTorch reference operations.
+- [x] Add normalization correctness tests.
+- [x] Implement CUDA fused residual-add + RMSNorm.
+- [x] Expose the kernel through C++ bindings.
+- [ ] Publish a reproducible normalization benchmark. *(script done; needs GPU run)*
+- [ ] Integrate the operation into a pinned vLLM version. *(adapter done; needs GPU validation)*
 - [ ] Validate actual runtime execution and model outputs.
-- [ ] Implement Triton causal attention.
-- [ ] Compare matching attention library baselines.
-- [ ] Implement TVM fusion and GPU scheduling.
-- [ ] Add controlled SGLang serving comparisons.
+- [x] Implement Triton causal attention.
+- [ ] Compare matching attention library baselines. *(script done; needs GPU run)*
+- [x] Implement TVM fusion and GPU scheduling.
+- [ ] Add controlled SGLang serving comparisons. *(runner + benchmark done; needs GPU run)*
 - [ ] Profile selected kernel and serving workloads.
 - [ ] Publish tested installation instructions and raw results.
 

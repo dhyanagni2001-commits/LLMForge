@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.egg-info/
+build/
+dist/
+*.so
+.pytest_cache/
+results/*.json
+*.nsys-rep
+*.ncu-rep

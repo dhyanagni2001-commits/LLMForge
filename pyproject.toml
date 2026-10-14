@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmforge"
+version = "0.1.0"
+description = "GPU kernels, compiler optimizations, and reproducible benchmarks for LLM inference."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.1", "numpy"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+triton = ["triton>=2.1"]
+serving = ["aiohttp>=3.9", "transformers>=4.40"]
+vllm = ["vllm"]
+sglang = ["sglang"]
+tvm = ["apache-tvm==0.27.0.post1"]
+
+[tool.setuptools.packages.find]
+include = ["models*", "kernels*", "runtimes*", "compiler*", "benchmarks*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
