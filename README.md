@@ -597,19 +597,32 @@ Collect primary timing results separately from profiling runs.
 
 ## Implementation Roadmap
 
-- [x] Implement PyTorch reference operations.
-- [x] Add normalization correctness tests.
-- [x] Implement CUDA fused residual-add + RMSNorm.
-- [x] Expose the kernel through C++ bindings.
-- [ ] Publish a reproducible normalization benchmark. *(script done; needs GPU run)*
-- [ ] Integrate the operation into a pinned vLLM version. *(adapter done; needs GPU validation)*
-- [ ] Validate actual runtime execution and model outputs.
-- [x] Implement Triton causal attention.
-- [ ] Compare matching attention library baselines. *(script done; needs GPU run)*
-- [x] Implement TVM fusion and GPU scheduling.
-- [ ] Add controlled SGLang serving comparisons. *(runner + benchmark done; needs GPU run)*
-- [ ] Profile selected kernel and serving workloads.
-- [ ] Publish tested installation instructions and raw results.
+### Done
+
+- [x] PyTorch reference operations (residual add, RMSNorm, causal attention) — tested on CPU.
+- [x] Small decoder-only transformer with swappable reference/custom ops — tested on CPU.
+- [x] CUDA fused residual-add + RMSNorm kernel (FP32/FP16/BF16, vectorized + scalar paths) — written.
+- [x] PyTorch C++ bindings with input validation and JIT build — written.
+- [x] Triton tiled causal attention forward (online softmax) — written.
+- [x] Correctness tests for normalization, attention, and compiler fusion.
+- [x] TVM Relax fusion pass (add + RMSNorm) with rejection of invalid patterns — tested on CPU.
+- [x] TVM GPU schedule (block-per-row, cross-thread reduction) — lowering tested on CPU.
+- [x] vLLM custom-op adapter with fallback and execution counters — written.
+- [x] SGLang launcher with matched vLLM baseline command — written.
+- [x] Benchmark scripts: RMSNorm, attention (FlashAttention/FlashInfer baselines), serving.
+- [x] Packaging (`pyproject.toml`), optional CMake build, and docs.
+
+### Left (requires an NVIDIA GPU)
+
+- [ ] Run GPU tests: CUDA kernel and Triton attention correctness (`pytest -q`).
+- [ ] Run TVM schedule on CUDA and compare fused vs unfused performance.
+- [ ] Run and publish the normalization benchmark (`results/rmsnorm.json`).
+- [ ] Run and publish the attention benchmark against library baselines.
+- [ ] Pin a vLLM version; confirm the custom kernel executes and model outputs match.
+- [ ] Run vLLM baseline vs vLLM + custom op vs SGLang serving benchmarks.
+- [ ] Profile kernels and serving with Nsight Systems / Nsight Compute; fill `docs/profiling.md`.
+- [ ] Fill the Results table and record tested GPU environment versions.
+- [ ] Choose and add a `LICENSE`.
 
 The first milestone is a correct CUDA normalization kernel with reproducible measurements.
 
