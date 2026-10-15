@@ -61,6 +61,8 @@ TOL = {torch.float16: 2e-3, torch.bfloat16: 2e-2, torch.float32: 2e-3}  # fp32 d
 @pytest.mark.parametrize("d", [16, 32, 64, 128])
 @pytest.mark.parametrize("causal", [True, False])
 def test_triton_matches_reference(dtype, n, d, causal):
+    if dtype == torch.bfloat16 and torch.cuda.get_device_capability()[0] < 8:
+        pytest.skip("Triton bf16 dot requires sm_80+")
     torch.manual_seed(n + d)
     q, k, v = (torch.randn(2, 3, n, d, device="cuda", dtype=dtype) for _ in range(3))
     out = triton_attention(q, k, v, causal=causal)
